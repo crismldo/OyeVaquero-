@@ -303,6 +303,17 @@ app.get("/api/transacciones", verificarToken, async (req, res) => {
   }
 });
 
+app.get("/api/rentas/activa", verificarToken, async (req, res) => {
+  try {
+    const renta = await Renta.findOne({ usuario: req.user.id, estado: "Activa" })
+      .populate("vehiculo", "codigoVehiculo tipo")
+      .populate("estacionOrigen", "nombre");
+    res.json(renta || null);
+  } catch (error) {
+    res.status(500).json({ message: "Error al verificar renta activa" });
+  }
+});
+
 //------ POST ------
 app.post("/api/estaciones", verificarToken, verificarAdmin, async (req, res) => {
   try {
@@ -361,6 +372,42 @@ app.post("/api/vehiculos", verificarToken, verificarAdmin, async (req, res) => {
   }
 });
 
+app.post("/api/rentas/iniciar", verificarToken, async (req, res) => {
+  try {
+    const { vehiculoId } = req.body;
+    const usuarioId = req.user.id; 
+
+    // ✅ REGLA 1: Verificar si ya tiene un viaje activo
+    const viajePendiente = await Renta.findOne({ usuario: usuarioId, estado: 'Activo' });
+    if (viajePendiente) {
+      return res.status(400).json({ message: "Ya tienes un viaje en curso. Finalízalo antes de rentar otro." });
+    }
+    
+
+    [cite_start]// ✅ REGLA 2: Verificar si tiene un adeudo/saldo negativo [cite: 262]
+    const usuarioLogueado = await User.findById(usuarioId);
+    if (usuarioLogueado.adeudo > 0) {
+      return res.status(403).json({ 
+        message: `No puedes rentar. Tienes un adeudo pendiente de $${usuarioLogueado.adeudo} MXN. Ve a tu perfil para liquidarlo.` 
+      });
+    }
+
+    const vehiculo = await Vehiculo.findById(vehiculoId);
+    if (!vehiculo || vehiculo.estado !== 'Disponible') {
+      return res.status(400).json({ message: "El vehículo no está disponible" });
+    }
+
+    const nuevaRenta = new Renta({ usuario: usuarioId, vehiculo: vehiculoId, estado: 'Activo' });
+    await nuevaRenta.save();
+    await Vehiculo.findByIdAndUpdate(vehiculoId, { estado: 'En Uso' });
+
+    registrarLog(`Evento Crítico: Renta iniciada - Vehículo: ${vehiculoId}`);
+    res.status(201).json({ message: "Renta iniciada con éxito", renta: nuevaRenta });
+  } catch (error) {
+    res.status(500).json({ error: "Error al procesar la renta" });
+  }
+});
+
 //------ PUT ------
 app.put("/api/estaciones/:id", verificarToken, verificarAdmin, async (req, res) => {
   try {
@@ -400,6 +447,49 @@ app.put("/api/vehiculos/:id", verificarToken, verificarAdmin, async (req, res) =
     res.json(actualizado);
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+});
+
+app.put("/api/rentas/finalizar/:id", verificarToken, async (req, res) => {
+  try {
+    [cite_start]// Recibimos si el usuario dejó la bici tirada en la calle [cite: 264, 265]
+    const { fueraDeEstacion } = req.body; 
+    const rentaId = req.params.id;
+    const renta = await Renta.findById(rentaId).populate('vehiculo');
+
+    if (!renta || renta.estado === 'Finalizado') {
+      return res.status(400).json({ message: "Renta no encontrada o ya finalizada" });
+    }
+
+    const horaFin = new Date();
+    const minutos = Math.ceil((horaFin - renta.horaInicio) / (1000 * 60)); 
+    let costoTotal = minutos * renta.vehiculo.precioPorMinuto;
+    let mensajeExtra = "";
+
+    [cite_start]// ✅ REGLA 3: Aplicar multa si la dejó fuera de la estación [cite: 264, 265]
+    if (fueraDeEstacion) {
+      const MULTA = 50; // $50 pesos de multa
+      costoTotal += MULTA;
+      mensajeExtra = ` (Incluye multa de $${MULTA} por abandono fuera de estación)`;
+      
+      // Le cargamos la deuda al usuario
+      await User.findByIdAndUpdate(req.user.id, { $inc: { adeudo: costoTotal } });
+      
+      // Registramos el incidente
+      const nuevaTransaccion = new Transaccion({ usuarioID: req.user.id, tipo: 'Multa', monto: costoTotal });
+      await nuevaTransaccion.save();
+    }
+
+    renta.horaFin = horaFin;
+    renta.costoTotal = costoTotal;
+    renta.estado = 'Finalizado';
+    await renta.save();
+    await Vehiculo.findByIdAndUpdate(renta.vehiculo._id, { estado: 'Disponible' });
+
+    registrarLog(`Evento Crítico: Renta finalizada ID: ${rentaId} - Total: $${costoTotal}`);
+    res.json({ message: "Renta finalizada", tiempo: `${minutos} min`, total: costoTotal, nota: mensajeExtra });
+  } catch (error) {
+    res.status(500).json({ error: "Error al finalizar la renta" });
   }
 });
 

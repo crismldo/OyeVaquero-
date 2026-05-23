@@ -9,6 +9,7 @@ import Auth from './pages/Auth.jsx'
 import Manual from './pages/Manual.jsx'
 import Perfil from './pages/Perfil.jsx'
 import Admin from './pages/Admin.jsx'
+import Renta from './pages/Renta.jsx'
 
 function AppContent() {
   const location = useLocation();
@@ -26,6 +27,7 @@ function AppContent() {
         <Route path="/manual" element={<Manual />} />
         <Route path="/perfil" element={<Perfil />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/renta" element={<Renta />} />
       </Routes>
 
       <Footer />
