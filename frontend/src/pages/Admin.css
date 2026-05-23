@@ -373,3 +373,72 @@
     font-size: 1.8rem;
   }
 }
+
+/* =====================
+   REPORTES
+   ===================== */
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.admin-table th {
+  background: #3f7069;
+  color: white;
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 600;
+}
+
+.admin-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(109, 87, 61, 0.15);
+  color: #2f2419;
+}
+
+.admin-table tr:hover td {
+  background: #fdf5e6;
+}
+
+.admin-stat-card {
+  background: #fdf5e6;
+  border: 1px solid rgba(109, 87, 61, 0.2);
+  border-radius: 10px;
+  padding: 12px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+}
+
+.admin-stat-card span {
+  font-size: 0.8rem;
+  color: #6f604f;
+}
+
+.admin-stat-card strong {
+  font-size: 1.4rem;
+  color: #2f2419;
+}
+
+.admin-btn-close{
+  width: 100%;
+  padding: 13px;
+  margin-top: 6px;
+  background: var(--danger);
+  color: #fdf5e6;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: 'Roboto Slab', serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 0 var(--primary-hover);
+  transition: transform 0.15s, box-shadow 0.15s;
+}

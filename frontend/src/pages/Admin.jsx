@@ -369,56 +369,167 @@ function Admin() {
             </div>
           </div>
 
-          {/* SECCIÓN DE REPORTES*/}
+          {/* SECCIÓN DE REPORTES */}
           <div className="admin-section-box admin-full-width">
             <h3><i className="bx bxs-report"></i> Reportes del Sistema</h3>
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
-              <button className="admin-btn-save" style={{ width: 'auto' }} onClick={() => verReporte('historial-rentas')}>Historial Rentas</button>
-              <button className="admin-btn-save" style={{ width: 'auto' }} onClick={() => verReporte('incidentes-pendientes')}>Incidentes</button>
-              <button className="admin-btn-save" style={{ width: 'auto' }} onClick={() => verReporte('ingresos-transacciones')}>Ingresos</button>
-              <button className="admin-btn-save" style={{ width: 'auto' }} onClick={() => verReporte('ocupacion-estaciones')}>Ocupación</button>
+            
+            {/* BOTONES */}
+            <div style={{ display: "flex", gap: "10px", marginBottom: "20px", flexWrap: "wrap" }}>
+              {[
+                { key: "historial-rentas", label: "Historial Rentas" },
+                { key: "incidentes-pendientes", label: "Incidentes" },
+                { key: "ingresos-transacciones", label: "Ingresos" },
+                { key: "ocupacion-estaciones", label: "Ocupación" }
+              ].map(({ key, label }) => (
+                <button key={key} className={`admin-btn-save ${reporteActivo === key ? "" : ""}`}
+                  style={{ width: "auto", background: reporteActivo === key ? "#2f5f58" : undefined }}
+                  onClick={() => verReporte(key)}>
+                  {label}
+                </button>
+              ))}
+              {reporteActivo && (
+                <button className="admin-btn-close" style={{ width: "auto" }}
+                  onClick={() => { setReporteActivo(null); setDatosReporte([]); }}>
+                  Cerrar
+                </button>
+              )}
             </div>
 
-            <div className="admin-vehicle-list" style={{ maxHeight: '250px' }}>
-              {!reporteActivo && <p className="admin-empty">Haz clic en un botón para cargar un reporte.</p>}
-              {reporteActivo && datosReporte.length === 0 && <p className="admin-empty">No hay datos para este reporte.</p>}
-              
-              {reporteActivo === 'historial-rentas' && datosReporte.map((r, i) => (
-                 <div key={i} className="admin-item">
-                   <div className="admin-item-info">
-                     <strong>Renta ID: {r._id}</strong>
-                     <span className="admin-item-sub">Usuario: {r.usuario?.nombre} | Vehículo: {r.vehiculo?.codigoVehiculo} | Total: ${r.costoTotal || 0} | Estado: {r.estado}</span>
-                   </div>
-                 </div>
-              ))}
+            {/* RESUMEN */}
+            {reporteActivo && datosReporte.length > 0 && (
+              <div style={{ display: "flex", gap: "15px", marginBottom: "20px", flexWrap: "wrap" }}>
 
-              {reporteActivo === 'incidentes-pendientes' && datosReporte.map((r, i) => (
-                 <div key={i} className="admin-item">
-                   <div className="admin-item-info">
-                     <strong>Incidente: {r.descripcion}</strong>
-                     <span className="admin-item-sub">Vehículo: {r.vehiculo?.codigoVehiculo} | Reporta: {r.reportadoPor?.nombre}</span>
-                   </div>
-                 </div>
-              ))}
+                {reporteActivo === "historial-rentas" && (<>
+                  <div className="admin-stat-card">
+                    <span>Total rentas</span><strong>{datosReporte.length}</strong>
+                  </div>
+                  <div className="admin-stat-card">
+                    <span>Completadas</span><strong>{datosReporte.filter(r => r.estado === "Completada").length}</strong>
+                  </div>
+                  <div className="admin-stat-card">
+                    <span>Ingresos totales</span><strong>${datosReporte.reduce((acc, r) => acc + (r.costoTotal || 0), 0).toFixed(2)}</strong>
+                  </div>
+                </>)}
 
-              {reporteActivo === 'ingresos-transacciones' && datosReporte.map((r, i) => (
-                 <div key={i} className="admin-item">
-                   <div className="admin-item-info">
-                     <strong>Tipo: {r.tipo}</strong>
-                     <span className="admin-item-sub">Usuario: {r.usuarioID?.nombre} | Monto: ${r.monto} | Fecha: {new Date(r.fecha).toLocaleDateString()}</span>
-                   </div>
-                 </div>
-              ))}
+                {reporteActivo === "incidentes-pendientes" && (<>
+                  <div className="admin-stat-card">
+                    <span>Incidentes pendientes</span><strong>{datosReporte.length}</strong>
+                  </div>
+                  <div className="admin-stat-card">
+                    <span>Vehículos afectados</span><strong>{new Set(datosReporte.map(r => r.vehiculo?._id)).size}</strong>
+                  </div>
+                </>)}
 
-              {reporteActivo === 'ocupacion-estaciones' && datosReporte.map((r, i) => (
-                 <div key={i} className="admin-item">
-                   <div className="admin-item-info">
-                     <strong>{r.codigoVehiculo} ({r.tipo})</strong>
-                     <span className="admin-item-sub">En estación: {r.estacionActual?.nombre} (Capacidad: {r.estacionActual?.capacidadMaxima})</span>
-                   </div>
-                 </div>
-              ))}
-            </div>
+                {reporteActivo === "ingresos-transacciones" && (<>
+                  <div className="admin-stat-card">
+                    <span>Total transacciones</span><strong>{datosReporte.length}</strong>
+                  </div>
+                  <div className="admin-stat-card">
+                    <span>Ingresos totales</span><strong>${datosReporte.reduce((acc, r) => acc + (r.monto || 0), 0).toFixed(2)}</strong>
+                  </div>
+                </>)}
+
+                {reporteActivo === "ocupacion-estaciones" && (<>
+                  <div className="admin-stat-card">
+                    <span>Vehículos en estación</span><strong>{datosReporte.length}</strong>
+                  </div>
+                  <div className="admin-stat-card">
+                    <span>Estaciones ocupadas</span><strong>{new Set(datosReporte.map(r => r.estacionActual?._id)).size}</strong>
+                  </div>
+                </>)}
+
+              </div>
+            )}
+
+            {/* TABLAS */}
+            {!reporteActivo && <p className="admin-empty">Selecciona un reporte para visualizarlo.</p>}
+            {reporteActivo && datosReporte.length === 0 && <p className="admin-empty">No hay datos para este reporte.</p>}
+
+            {reporteActivo === "historial-rentas" && datosReporte.length > 0 && (
+              <div style={{ overflowX: "auto" }}>
+                <table className="admin-table">
+                  <thead><tr>
+                    <th>Usuario</th><th>Correo</th><th>Vehículo</th><th>Tipo</th><th>Costo total</th><th>Estado</th>
+                  </tr></thead>
+                  <tbody>
+                    {datosReporte.map((r, i) => (
+                      <tr key={i}>
+                        <td>{r.usuario?.nombre || "—"}</td>
+                        <td>{r.usuario?.correo || "—"}</td>
+                        <td>{r.vehiculo?.codigoVehiculo || "—"}</td>
+                        <td>{r.vehiculo?.tipo || "—"}</td>
+                        <td>${(r.costoTotal || 0).toFixed(2)}</td>
+                        <td>{r.estado}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {reporteActivo === "incidentes-pendientes" && datosReporte.length > 0 && (
+              <div style={{ overflowX: "auto" }}>
+                <table className="admin-table">
+                  <thead><tr>
+                    <th>Descripción</th><th>Vehículo</th><th>Tipo</th><th>Reportado por</th><th>Correo</th>
+                  </tr></thead>
+                  <tbody>
+                    {datosReporte.map((r, i) => (
+                      <tr key={i}>
+                        <td>{r.descripcion || "—"}</td>
+                        <td>{r.vehiculo?.codigoVehiculo || "—"}</td>
+                        <td>{r.vehiculo?.tipo || "—"}</td>
+                        <td>{r.reportadoPor?.nombre || "—"}</td>
+                        <td>{r.reportadoPor?.correo || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {reporteActivo === "ingresos-transacciones" && datosReporte.length > 0 && (
+              <div style={{ overflowX: "auto" }}>
+                <table className="admin-table">
+                  <thead><tr>
+                    <th>Usuario</th><th>Correo</th><th>Tipo</th><th>Monto</th><th>Fecha</th>
+                  </tr></thead>
+                  <tbody>
+                    {datosReporte.map((r, i) => (
+                      <tr key={i}>
+                        <td>{r.usuarioID?.nombre || "—"}</td>
+                        <td>{r.usuarioID?.correo || "—"}</td>
+                        <td>{r.tipo || "—"}</td>
+                        <td>${(r.monto || 0).toFixed(2)}</td>
+                        <td>{new Date(r.fecha).toLocaleDateString("es-MX")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {reporteActivo === "ocupacion-estaciones" && datosReporte.length > 0 && (
+              <div style={{ overflowX: "auto" }}>
+                <table className="admin-table">
+                  <thead><tr>
+                    <th>Vehículo</th><th>Tipo</th><th>Estación</th><th>Capacidad máx.</th><th>Estado estación</th>
+                  </tr></thead>
+                  <tbody>
+                    {datosReporte.map((r, i) => (
+                      <tr key={i}>
+                        <td>{r.codigoVehiculo || "—"}</td>
+                        <td>{r.tipo || "—"}</td>
+                        <td>{r.estacionActual?.nombre || "—"}</td>
+                        <td>{r.estacionActual?.capacidadMaxima || "—"}</td>
+                        <td>{r.estacionActual?.estado || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
           </div>
 
           {/* MODAL EDITAR ESTACIÓN */}
