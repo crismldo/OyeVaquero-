@@ -4,7 +4,7 @@ const RentaSchema = new mongoose.Schema({
 
     usuario: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Usuarios',
+        ref: 'Usuario',
         required: true
     },
     vehiculo: {
