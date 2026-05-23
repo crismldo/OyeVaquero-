@@ -6,7 +6,6 @@ function Manual() {
     <div style={{ minHeight: "100vh", background: "#e8ddca", color: "#2f2419", padding: "32px 24px" }}>
       <div style={{ maxWidth: "980px", margin: "0 auto", background: "#fff8ed", border: "1px solid rgba(109,87,61,.24)", borderRadius: "18px", padding: "28px" }}>
         <header style={{ display: "grid", gap: "12px", justifyItems: "center", textAlign: "center", marginBottom: "18px" }}>
-          <img src={logo} alt="Logo" style={{ height: "86px", width: "auto" }} />
           <h1 style={{ margin: 0 }}>Guia del Vaquero</h1>
           <p style={{ margin: 0, color: "#6f604f" }}>Sigue estos pasos para rentar y usar tu ride de forma segura.</p>
         </header>

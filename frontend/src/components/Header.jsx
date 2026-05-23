@@ -19,7 +19,7 @@ function Header(){
     return(
         <header className="header">
         <div className="header-top">
-          <img className="brand-logo" src="/img/logo.png" alt="Oye Vaquero" />
+          <Link to={"/"}><img className="brand-logo" src="/img/logo.png" alt="Oye Vaquero" /></Link>
         </div>
 
         <div className="header-nav-row">

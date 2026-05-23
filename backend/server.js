@@ -135,6 +135,80 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
+// ------  METODOS DE PAGO ------
+app.get("/api/usuarios/metodos-pago", verificarToken, async (req, res) => {
+  try {
+    const usuario = await User.findById(req.user.id);
+    if (!usuario) return res.status(404).json({ message: "Usuario no encontrado" });
+    
+    const tarjetasSeguras = (usuario.metodosPago || []).map(t => ({
+      _id: t._id,
+      ultimos4: t.ultimos4,
+      marca: t.marca,
+      expiracion: t.expiracion
+    }));
+    
+    res.json(tarjetasSeguras);
+  } catch (error) {
+    console.log("Error en GET tarjetas:", error);
+    res.status(500).json({ message: "Error al obtener métodos de pago" });
+  }
+});
+
+app.post("/api/usuarios/metodos-pago", verificarToken, async (req, res) => {
+  try {
+    const { numeroTarjeta, expiracion, alias } = req.body;
+
+    if (!numeroTarjeta || !expiracion || !alias?.trim()) {
+      return res.status(400).json({ message: "Todos los campos son obligatorios." });
+    }
+
+    const digitsOnly = numeroTarjeta.replace(/\D/g, "");
+    if (digitsOnly.length < 15 || digitsOnly.length > 16) {
+      return res.status(400).json({ message: "Número de tarjeta inválido." });
+    }
+
+    const expRegex = /^(0[1-9]|1[0-2])\/\d{2}$/;
+    if (!expRegex.test(expiracion)) {
+      return res.status(400).json({ message: "Formato de expiración inválido. Usa MM/AA." });
+    }
+
+    const [mes, anio] = expiracion.split("/");
+    const expDate = new Date(2000 + parseInt(anio), parseInt(mes) - 1, 1);
+    if (expDate < new Date()) {
+      return res.status(400).json({ message: "La tarjeta está vencida." });
+    }
+
+    // Detectar marca automáticamente
+    let marca = "Desconocida";
+    if (digitsOnly.startsWith("4")) marca = "Visa";
+    else if (digitsOnly.startsWith("5")) marca = "Mastercard";
+    else if (digitsOnly.startsWith("3")) marca = "Amex";
+
+    const ultimos4 = digitsOnly.slice(-4);
+    const tarjetaEncriptada = await bcrypt.hash(digitsOnly, 10);
+
+    const usuario = await User.findById(req.user.id);
+    if (!usuario) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    if (!Array.isArray(usuario.metodosPago)) usuario.metodosPago = [];
+
+    // Verificar que no esté duplicada
+    const duplicada = usuario.metodosPago.some(t => t.ultimos4 === ultimos4 && t.marca === marca && t.expiracion === expiracion);
+    if (duplicada) return res.status(400).json({ message: "Esta tarjeta ya está guardada." });
+
+    usuario.metodosPago.push({ ultimos4, marca, expiracion, alias: alias.trim(), tarjetaEncriptada });
+    await usuario.save();
+
+    registrarLog(`Evento: Usuario ${usuario.correo} guardó un nuevo método de pago`);
+    res.status(201).json({ message: "Tarjeta guardada con seguridad" });
+  } catch (error) {
+    console.log("Error en POST tarjetas:", error);
+    res.status(500).json({ message: "Error al guardar tarjeta" });
+  }
+});
+//---------------------------------------
+
 app.get("/api/usuarios/:id", verificarToken, async (req, res) => {
   try {
     const usuario = await User.findById(req.params.id).select("-password");
@@ -153,7 +227,45 @@ app.get("/api/usuarios/:id", verificarToken, async (req, res) => {
 
 app.put("/api/usuarios/:id", verificarToken, async (req, res) => {
   try {
-    const actualizado = await User.findByIdAndUpdate(req.params.id, req.body, { new: true }).select('-password');
+    const { nombre, apellido, pais, correo, password } = req.body;
+    const update = {};
+
+    if (nombre !== undefined) {
+      if (!nombre.trim()) return res.status(400).json({ message: "El nombre no puede estar vacío." });
+      const soloLetras = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
+      if (!soloLetras.test(nombre.trim())) return res.status(400).json({ message: "El nombre solo puede contener letras." });
+      update.nombre = nombre.trim();
+    }
+
+    if (apellido !== undefined) {
+      if (!apellido.trim()) return res.status(400).json({ message: "El apellido no puede estar vacío." });
+      const soloLetras = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
+      if (!soloLetras.test(apellido.trim())) return res.status(400).json({ message: "El apellido solo puede contener letras." });
+      update.apellido = apellido.trim();
+    }
+
+    if (pais !== undefined) {
+      if (!pais.trim()) return res.status(400).json({ message: "El país no puede estar vacío." });
+      update.pais = pais.trim();
+    }
+
+    if (correo !== undefined) {
+      if (!correo.trim()) return res.status(400).json({ message: "El correo no puede estar vacío." });
+      const correoRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+      if (!correoRegex.test(correo.trim())) return res.status(400).json({ message: "Correo electrónico no válido." });
+      const existingUser = await User.findOne({ correo: correo.trim().toLowerCase(), _id: { $ne: req.params.id } });
+      if (existingUser) return res.status(400).json({ message: "Este correo ya está registrado." });
+      update.correo = correo.trim().toLowerCase();
+    }
+
+    if (password !== undefined) {
+      if (!password.trim()) return res.status(400).json({ message: "La contraseña no puede estar vacía." });
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/;
+      if (!passwordRegex.test(password)) return res.status(400).json({ message: "La contraseña no cumple los requisitos de seguridad." });
+      update.password = await bcrypt.hash(password, 10);
+    }
+
+    const actualizado = await User.findByIdAndUpdate(req.params.id, update, { new: true }).select('-password');
     res.json(actualizado);
   } catch (error) {
     res.status(400).json({ error: error.message });

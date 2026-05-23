@@ -16,9 +16,32 @@ function Perfil() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editData, setEditData] = useState({ nombre: "", apellido: "", pais: "", correo: "" });
 
+  // ESTADOS DE LA CARTERA VIRTUAL (Vacío por defecto)
+  const [walletMethods, setWalletMethods] = useState([]);
+  const [newWalletMethod, setNewWalletMethod] = useState({ 
+    brand: "Visa", 
+    alias: "", 
+    cardNumber: "",
+    expiracion: "",
+    cvv: ""
+  });
+
   const showToast = (message) => {
     setToast(message);
     window.setTimeout(() => setToast(""), 2000);
+  };
+
+  const cargarTarjetas = async (token) => {
+    try {
+      const res = await fetch("http://localhost:5000/api/usuarios/metodos-pago", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setWalletMethods(await res.json());
+      }
+    } catch (error) {
+      console.error("Error al cargar tarjetas:", error);
+    }
   };
 
   useEffect(() => {
@@ -40,6 +63,7 @@ function Perfil() {
       })
       .catch(err => console.error("Error al cargar perfil:", err));
 
+      cargarTarjetas(token);
   }, [navigate]);
 
   
@@ -56,7 +80,6 @@ function Perfil() {
       return showToast("Todos los campos son obligatorios.");
     }
 
-    //  solo letras
     const soloLetras = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
     if (!soloLetras.test(nombre.trim()) || !soloLetras.test(apellido.trim())) {
       return showToast("Nombre y apellido solo pueden contener letras.");
@@ -90,6 +113,65 @@ function Perfil() {
       showToast("Error de conexión con el servidor.");
     }
   };
+
+
+  // --- AGREGAR NUEVA TARJETA ---
+  const addWalletMethod = async (event) => {
+    event.preventDefault();
+    const digitsOnly = newWalletMethod.cardNumber.replace(/\D/g, "");
+    
+    if (digitsOnly.length < 15 || digitsOnly.length > 16) return showToast("Número de tarjeta inválido.");
+    if (newWalletMethod.alias.trim() === "") return showToast("Agrega un alias para identificarla.");
+    
+    // Validar expiración formato MM/YY
+    const expRegex = /^(0[1-9]|1[0-2])\/\d{2}$/;
+    if (!expRegex.test(newWalletMethod.expiracion)) return showToast("Fecha de expiración inválida. Usa el formato MM/AA.");
+
+    // Validar que no esté vencida
+    const [mes, anio] = newWalletMethod.expiracion.split("/");
+    const expDate = new Date(2000 + parseInt(anio), parseInt(mes) - 1, 1);
+    if (expDate < new Date()) return showToast("⚠️ Esta tarjeta ya está vencida.");
+
+    // Validar CVV (3 dígitos, o 4 para Amex)
+    const cvvLength = newWalletMethod.brand === "Amex" ? 4 : 3;
+    const cvvRegex = new RegExp(`^\\d{${cvvLength}}$`);
+    if (!cvvRegex.test(newWalletMethod.cvv)) return showToast(`⚠️ El CVV debe tener ${cvvLength} dígitos.`);
+    if (newWalletMethod.cvv === "000") return showToast("⚠️ CVV inválido.");
+
+    try {
+      const res = await fetch("http://localhost:5000/api/usuarios/metodos-pago", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json", 
+          "Authorization": `Bearer ${localStorage.getItem("token")}` 
+        },
+        body: JSON.stringify({ 
+          numeroTarjeta: digitsOnly,
+          alias: newWalletMethod.alias.trim(),
+          expiracion: newWalletMethod.expiracion
+        })
+      });
+
+      if (res.ok) {
+        showToast("💳 ¡Tarjeta agregada a tu Cartera Virtual!");
+        setNewWalletMethod({ brand: "Visa", alias: "", cardNumber: "", expiracion: "", cvv: "" });
+        cargarTarjetas(localStorage.getItem("token"));
+      } else {
+        const data = await res.json();
+        showToast(data.message || "Error al guardar la tarjeta.");
+      }
+    } catch (error) {
+      showToast("Error de conexión al guardar.");
+    }
+  };
+
+  // --- ELIMINAR TARJETA ---
+  const removeWalletMethod = (id) => {
+    // Por ahora solo la quitamos de la vista
+    setWalletMethods(prev => prev.filter(m => m._id !== id));
+    showToast("Método de pago eliminado.");
+  };
+
 
   // --- CAMBIAR CONTRASEÑA ---
   const handleSavePassword = async () => {
@@ -251,6 +333,95 @@ function Perfil() {
               <button className="btn-save" type="button" onClick={handleSaveEdit}>Guardar</button>
               <button className="btn-close" type="button" onClick={() => setShowEditModal(false)}>Cancelar</button>
             </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* MODAL CARTERA VIRTUAL */}
+      {showWalletModal && (
+        <div className="modal active" style={{ display: "grid" }} onClick={(e) => { if (e.target === e.currentTarget) setShowWalletModal(false); }}>
+          
+          <div className="modal-box wallet-modal-box" style={{ maxWidth: "650px", width: "90%" }}>
+            
+            <h3>Cartera virtual</h3>
+            <p className="wallet-subtitle" style={{marginBottom: "15px", color: "#6f604f"}}>Administra tus métodos de pago guardados.</p>
+
+            {/* LISTA DE TARJETAS */}
+            <div className="wallet-list" style={{marginBottom: "20px"}}>
+              {walletMethods.length === 0 ? (
+                <div style={{padding: "15px", background: "#e8ddca", borderRadius: "10px", textAlign: "center", border: "1px dashed rgba(109,87,61,.4)"}}>
+                  <p className="wallet-empty" style={{margin: 0, color: "#6f604f"}}>No tienes tarjetas guardadas.</p>
+                </div>
+              ) : (
+                walletMethods.map((method) => (
+                  <article className="wallet-item" key={method._id} style={{padding: "15px", border: "1px solid rgba(109,87,61,.2)", borderRadius: "10px", marginBottom: "10px", background: "#fdf5e6", display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+                    <div style={{textAlign: "left"}}>
+                      <p className="wallet-brand" style={{margin: 0, fontWeight: "bold", color: "#2f2419"}}>💳 {method.marca} •••• {method.ultimos4}</p>
+                      <p className="wallet-alias" style={{margin: "4px 0 0", fontSize: "0.85em", color: "#6f604f"}}>Tarjeta Guardada</p>
+                    </div>
+                    <button type="button" onClick={() => removeWalletMethod(method._id)} style={{background: "transparent", border: "1px solid #a84b3c", color: "#a84b3c", padding: "6px 12px", borderRadius: "8px", cursor: "pointer"}}>
+                      Eliminar
+                    </button>
+                  </article>
+                ))
+              )}
+            </div>
+
+            <div style={{ borderTop: "1px dashed rgba(109,87,61,.3)", margin: "20px 0" }}></div>
+
+            {/* FORMULARIO */}
+            <form className="wallet-form" onSubmit={addWalletMethod} style={{ width: "100%", boxSizing: "border-box", display:"flex", flexDirection:"column"}}>
+              
+              <div style={{ display: "flex", gap: "10px", width: "100%", marginBottom: "15px", flexDirection:"column" }}>
+                <div style={{ display: "flex", gap: "10px", width: "100%", marginBottom: "15px" }}>
+                  <label style={{ flex: "1", textAlign: "left", fontSize: "0.85rem", color: "#6f604f" }}>
+                    Marca
+                    <select className="mod-input" style={{ width: "100%", margin: "5px 0 0", padding: "12px", boxSizing: "border-box" }} value={newWalletMethod.brand} onChange={(e) => setNewWalletMethod((prev) => ({ ...prev, brand: e.target.value }))}>
+                      <option value="Visa">Visa</option>
+                      <option value="Mastercard">Mastercard</option>
+                      <option value="Amex">Amex</option>
+                    </select>
+                  </label>
+                  
+                  <label style={{ flex: "1.2", textAlign: "left", fontSize: "0.85rem", color: "#6f604f" }}>
+                    Alias
+                    <input className="mod-input" type="text" placeholder="Ejemplo: Nomina" style={{ width: "100%", margin: "5px 0 0", padding: "12px", boxSizing: "border-box" }} value={newWalletMethod.alias} onChange={(e) => setNewWalletMethod((prev) => ({ ...prev, alias: e.target.value }))} />
+                  </label>
+                  
+                  <label style={{ flex: "2", textAlign: "left", fontSize: "0.85rem", color: "#6f604f" }}>
+                    Tarjeta
+                    <input className="mod-input" type="text" inputMode="numeric" placeholder="1234 5678 9012 3456" style={{ width: "100%", margin: "5px 0 0", padding: "12px", boxSizing: "border-box" }} value={newWalletMethod.cardNumber} onChange={(e) => setNewWalletMethod((prev) => ({ ...prev, cardNumber: e.target.value }))} />
+                  </label>
+                </div>
+
+                <div style={{ display: "flex", gap: "10px", width: "100%", marginBottom: "15px" }}>
+                  <label style={{ flex: "1", textAlign: "left", fontSize: "0.85rem", color: "#6f604f" }}>
+                    Expiración
+                    <input className="mod-input" type="text" placeholder="MM/AA" maxLength={5}
+                      style={{ width: "100%", margin: "5px 0 0", padding: "12px", boxSizing: "border-box" }}
+                      value={newWalletMethod.expiracion}
+                      onChange={(e) => setNewWalletMethod((prev) => ({ ...prev, expiracion: e.target.value }))} 
+                    />
+                  </label>
+
+                  <label style={{ flex: "1", textAlign: "left", fontSize: "0.85rem", color: "#6f604f" }}>
+                    CVV
+                    <input className="mod-input" type="password" placeholder="•••" maxLength={4}
+                      style={{ width: "100%", margin: "5px 0 0", padding: "12px", boxSizing: "border-box" }}
+                      value={newWalletMethod.cvv}
+                      onChange={(e) => setNewWalletMethod((prev) => ({ ...prev, cvv: e.target.value }))} 
+                    />
+                  </label>
+                </div>
+              </div>
+              
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <button className="btn-save" type="submit" style={{ width: "100%", background: "#3f7069" }}>Agregar metodo</button>
+                <button className="btn-close" type="button" onClick={() => setShowWalletModal(false)} style={{ width: "100%" }}>Cerrar</button>
+              </div>
+
+            </form>
           </div>
         </div>
       )}
