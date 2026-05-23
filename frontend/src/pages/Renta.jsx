@@ -408,37 +408,45 @@ function Renta() {
                     <p style={{ padding: "20px" }}>Cargando mapa...</p>
                   ) : (
                     <GoogleMap
-                      mapContainerStyle={mapContainerStyle}
-                      center={mapCenter}
-                      zoom={14}
-                      options={mapOptions}
-                    >
-                      {stations.map((station) => (
-                        <Marker
-                          key={station.id}
+                    mapContainerStyle={mapContainerStyle}
+                    center={mapCenter}
+                    zoom={14}
+                    options={mapOptions}
+                  >
+                    {stations.map((station) => (
+                      <Marker
+                        key={station.id}
+                        position={{ lat: station.lat, lng: station.lng }}
+                        title={station.name}
+                        onClick={() => {
+                          setSelectedStation(station);
+                          setSelectedVehicle(null);
+                          setActiveMarker(station.id);
+                        }}
+                      />
+                    ))}
+
+                    {/* InfoWindow fuera del Marker, con position propia */}
+                    {activeMarker && (() => {
+                      const station = stations.find(s => s.id === activeMarker);
+                      if (!station) return null;
+                      return (
+                        <InfoWindow
                           position={{ lat: station.lat, lng: station.lng }}
-                          title={station.name}
-                          onClick={() => {
-                            setSelectedStation(station);
-                            setSelectedVehicle(null);
-                            setActiveMarker(station.id);
-                          }}
+                          onCloseClick={() => setActiveMarker(null)}
                         >
-                          {activeMarker === station.id && (
-                            <InfoWindow onCloseClick={() => setActiveMarker(null)}>
-                              <div style={{ fontSize: "0.85rem", color: "#2f2419" }}>
-                                <strong>{station.name}</strong>
-                                <p style={{ margin: "4px 0 0" }}>
-                                  {station.vehicles.length > 0
-                                    ? `${station.vehicles.length} vehículo(s) disponible(s)`
-                                    : "Sin vehículos disponibles"}
-                                </p>
-                              </div>
-                            </InfoWindow>
-                          )}
-                        </Marker>
-                      ))}
-                    </GoogleMap>
+                          <div style={{ fontSize: "0.85rem", color: "#2f2419" }}>
+                            <strong>{station.name}</strong>
+                            <p style={{ margin: "4px 0 0" }}>
+                              {station.vehicles.length > 0
+                                ? `${station.vehicles.length} vehículo(s) disponible(s)`
+                                : "Sin vehículos disponibles"}
+                            </p>
+                          </div>
+                        </InfoWindow>
+                      );
+                    })()}
+                  </GoogleMap>
                   )}
                 </div>
                 </section>

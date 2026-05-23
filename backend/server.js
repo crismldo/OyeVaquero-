@@ -457,7 +457,7 @@ app.put("/api/rentas/finalizar/:id", verificarToken, async (req, res) => {
 
     await new Transaccion({ 
       usuarioID: req.user.id, 
-      tipo: tieneMulta ? 'Multa' : 'Renta', 
+      tipo: tieneMulta ? 'Multa' : 'Cobro_Renta', 
       monto: costoTotal 
     }).save();
 
