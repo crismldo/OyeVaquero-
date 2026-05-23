@@ -1,0 +1,121 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@400;700&family=Rye&family=Playfair+Display:ital,wght@1,700&display=swap');
+
+/* --- KEYFRAMES DE ANIMACIÓN --- */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes sway { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(92, 58, 33, 0.5); } 70% { box-shadow: 0 0 0 15px rgba(92, 58, 33, 0); } 100% { box-shadow: 0 0 0 0 rgba(92, 58, 33, 0); } }
+
+/* --- CLASES DE ESTADO INICIAL --- */
+.anim-fade-in { animation: fadeIn 1s ease-out forwards; }
+.anim-slide-up { animation: slideUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+.anim-float { animation: float 4s ease-in-out infinite; }
+.anim-step { opacity: 0; animation: slideUp 0.6s ease-out forwards; }
+.icon-sway { display: inline-block; animation: sway 3s ease-in-out infinite; }
+.pulse-effect { animation: pulse 2s infinite; }
+
+/* --- LAYOUT Y FONDO --- */
+.manual-body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 60px 20px;
+  background: linear-gradient(rgba(43, 24, 10, 0.4), rgba(43, 24, 10, 0.4)), url('./assets/FONDO1.jpg');
+  background-size: cover;
+  background-attachment: fixed;
+  font-family: 'Roboto Slab', serif;
+}
+
+.manual-container.paper-container {
+  width: 100%;
+  max-width: 1100px;
+  background-color: #fdf5e6;
+  background-image: url('./assets/paper-texture.jpg');
+  padding: 50px;
+  border: 12px solid #3d2616;
+  border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cpath fill='%233d2616' d='M0 0h100v100H0z'/%3E%3Cpath fill='%238b4513' d='M10 10h80v80H10z'/%3E%3Cpath fill='%233d2616' d='M20 20h60v60H20z'/%3E%3C/svg%3E") 30 stretch;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7);
+}
+
+/* --- HEADER --- */
+.manual-header { text-align: center; margin-bottom: 50px; border-bottom: 2px solid rgba(139, 69, 19, 0.3); padding-bottom: 30px; }
+.logo-wrapper { display: flex; justify-content: center; margin-bottom: 15px; }
+.manual-logo { max-height: 110px; width: auto; filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.3)); }
+.rye-font.old-west-title { font-family: 'Rye', cursive; font-size: 2.8rem; color: #3d2616; text-transform: uppercase; letter-spacing: 3px; }
+
+/* --- BOTONES DE CUERO REALISTA (HOVER PRO) --- */
+.western-btn {
+  background: linear-gradient(145deg, #5c3a21, #452b19);
+  background-image: url('./assets/leather-texture.png');
+  background-blend-mode: overlay;
+  color: #fdf5e6;
+  padding: 15px 35px;
+  border-radius: 4px;
+  font-weight: 900;
+  text-transform: uppercase;
+  border: 2px solid #3d2616;
+  box-shadow: 0 6px 0 #2b180a, 0 8px 15px rgba(0,0,0,0.4);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.western-btn:hover {
+  transform: translateY(-4px) scale(1.05);
+  filter: brightness(1.2);
+  box-shadow: 0 10px 0 #2b180a, 0 15px 25px rgba(0,0,0,0.5);
+}
+
+.western-btn:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #2b180a;
+}
+
+/* --- TARJETAS DE PASOS (HOVER PRO) --- */
+.steps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 35px; margin: 50px 0; }
+.step-card.western-card {
+  background: rgba(255, 255, 255, 0.4);
+  border: 3px dashed #5c3a21;
+  border-radius: 10px;
+  padding: 45px 30px;
+  position: relative;
+  text-align: center;
+  transition: all 0.4s ease;
+}
+
+.step-card.western-card:hover {
+  transform: translateY(-10px) rotate(1deg);
+  background: rgba(255, 255, 255, 0.8);
+  border-style: solid;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+}
+
+.step-number.leather-badge {
+  position: absolute;
+  top: -22px; left: 50%; transform: translateX(-50%);
+  background-color: #5c3a21;
+  background-image: url('./assets/leather-texture.png');
+  color: white; width: 45px; height: 45px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid #8b4513; font-weight: bold;
+}
+
+.step-icon { font-size: 3.8rem; color: #5c3a21; margin-bottom: 20px; transition: transform 0.3s ease; }
+.step-card.western-card:hover .step-icon { transform: scale(1.2); }
+.card-title-vaquero { font-family: 'Playfair Display', serif; font-style: italic; font-weight: 700; font-size: 1.6rem; color: #3d2616; }
+
+/* --- MAPA --- */
+.map-section { text-align: center; margin-top: 60px; }
+.map-wrapper.old-map-frame {
+  max-width: 650px; margin: 0 auto;
+  border: 8px solid #3d2616;
+  box-shadow: 0 15px 30px rgba(0,0,0,0.5);
+  transition: transform 0.5s ease;
+}
+
+.map-wrapper.old-map-frame:hover { transform: scale(1.02); }
+.map-img { width: 100%; display: block; transition: transform 0.8s ease; }
+.map-wrapper.old-map-frame:hover .map-img { transform: scale(1.1); }
+
+.manual-footer { margin-top: 60px; display: flex; justify-content: center; }

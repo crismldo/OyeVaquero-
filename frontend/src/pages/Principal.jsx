@@ -13,16 +13,6 @@ function Principal(){
 
         delete window.__principalEffectsInitialized
 
-        const script = document.createElement("script")
-        script.id = "principal-effects-script"
-        script.src = `/principal-main.js?v=${Date.now()}`
-        script.defer = true
-        document.body.appendChild(script)
-
-        return () => {
-            script.remove()
-            delete window.__principalEffectsInitialized
-        }
     }, [])
 
     return(

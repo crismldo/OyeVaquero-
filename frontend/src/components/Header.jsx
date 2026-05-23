@@ -2,6 +2,9 @@
 import { Link, useNavigate } from "react-router-dom";
 import { HashLink } from "react-router-hash-link";
 import userpng from "../assets/images/user1.png";
+import fb from "../assets/images/fb.png"
+import ig from "../assets/images/ig.png"
+import x from "../assets/images/x.png"
 import './Header.css';
 
 function Header(){
@@ -21,10 +24,15 @@ function Header(){
 
         <div className="header-nav-row">
           <div className="nav-social" aria-label="Redes sociales">
-            <a href="https://www.facebook.com/oyevaquero" target="_blank" rel="noopener" aria-label="Facebook">f</a>
-            <a href="https://x.com/oyevaquero" target="_blank" rel="noopener" aria-label="X">x</a>
-            <a href="https://www.instagram.com/oyevaquero" target="_blank" rel="noopener" aria-label="Instagram">i</a>
-            <Link to="/login" aria-label="Login">o</Link>
+            <a href="https://www.facebook.com/oyevaquero" target="_blank" rel="noopener" aria-label="Facebook">
+            <img className="social-icon" src={fb}/>
+            </a>
+            <a href="https://x.com/oyevaquero" target="_blank" rel="noopener" aria-label="X">
+            <img className="social-icon" src={x}/>
+            </a>
+            <a href="https://www.instagram.com/oyevaquero" target="_blank" rel="noopener" aria-label="Instagram">
+            <img className="social-icon" src={ig}/>
+            </a>
           </div>
 
           <nav className="nav">

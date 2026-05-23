@@ -5,6 +5,9 @@ import Header from './components/Header.jsx'
 import Footer from './components/Footer.jsx'
 
 import Principal from './pages/Principal.jsx'
+import Auth from './pages/Auth.jsx'
+import Manual from './pages/Manual.jsx'
+import Perfil from './pages/Perfil.jsx'
 
 function AppContent() {
   const location = useLocation();
@@ -18,6 +21,9 @@ function AppContent() {
 
       <Routes>
         <Route path="/" element={<Principal />} />
+        <Route path="/login" element={<Auth />} />
+        <Route path="/manual" element={<Manual />} />
+        <Route path="/perfil" element={<Perfil />} />
       </Routes>
 
       <Footer />
