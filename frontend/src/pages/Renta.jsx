@@ -39,54 +39,45 @@ function Renta() {
   const [activeMarker, setActiveMarker] = useState(null); // estación cuyo InfoWindow está abierto
 
   // --- ESTADOS NUEVOS PARA PAGOS ---
-  const [payment, setPayment] = useState({ holder: "", card: "", exp: "", cvv: "", terms: false });
+  const [payment, setPayment] = useState({ holder: "", card: "", exp: "", alias: "", cvv: "", terms: false });
 
   const showToast = (msg) => { setToast(msg); window.setTimeout(() => setToast(""), 3000); };
   const goTo = (nextStep) => { setStep(nextStep); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
   const cargarDatos = useCallback(async () => {
-  setLoadingMap(true);
-  try {
-    const localWalletRaw = localStorage.getItem(PERFIL_WALLET_STORAGE_KEY);
-    if (localWalletRaw) {
-      try {
-        const localWallet = JSON.parse(localWalletRaw);
-        const normalizedCards = Array.isArray(localWallet)
-          ? localWallet.map((card, index) => ({
-              _id: String(card.id ?? index),
-              marca: card.brand || "Tarjeta",
-              ultimos4: card.last4 || "0000",
-              expiracion: card.expiracion || "--/--"
-            }))
-          : [];
-        setSavedCards(normalizedCards);
-      } catch {
+    setLoadingMap(true);
+    try {
+      const headers = getAuthHeaders();
+
+      const [resEstaciones, resVehiculos, resTarjetas] = await Promise.all([
+        fetch("http://localhost:5000/api/estaciones", { headers }),
+        fetch("http://localhost:5000/api/vehiculos", { headers }),
+        fetch("http://localhost:5000/api/usuarios/metodos-pago", { headers })
+      ]);
+
+      if (resEstaciones.status === 401) return navigate("/login");
+
+      // Cargar tarjetas guardadas
+      if (resTarjetas.ok) {
+        const tarjetas = await resTarjetas.json();
+        setSavedCards(Array.isArray(tarjetas) ? tarjetas : []);
+      } else {
         setSavedCards([]);
       }
-    } else {
-      setSavedCards([]);
-    }
 
-    const headers = getAuthHeaders();
-    const [resEstaciones, resVehiculos] = await Promise.all([
-      fetch("http://localhost:5000/api/estaciones", { headers }),
-      fetch("http://localhost:5000/api/vehiculos", { headers })
-    ]);
+      const estacionesData = await resEstaciones.json();
+      const vehiculosData = await resVehiculos.json();
 
-    if (resEstaciones.status === 401) return navigate("/login");
-
-    const estacionesData = await resEstaciones.json();
-    const vehiculosData = await resVehiculos.json();
-    const resRentaActiva = await fetch("http://localhost:5000/api/rentas/activa", { headers });
-
-    if (resRentaActiva.ok) {
-      const rentaActiva = await resRentaActiva.json();
-      if (rentaActiva) {
-        setPaidOrder({ id: rentaActiva._id, serial: rentaActiva.vehiculo?.codigoVehiculo, station: rentaActiva.estacionOrigen?.nombre, total: 0 });
-        setTripStartedAt(new Date(rentaActiva.fechaInicio).getTime());
-        goTo("trip");
+      // Verificar renta activa
+      const resRentaActiva = await fetch("http://localhost:5000/api/rentas/activa", { headers });
+      if (resRentaActiva.ok) {
+        const rentaActiva = await resRentaActiva.json();
+        if (rentaActiva) {
+          setPaidOrder({ id: rentaActiva._id, serial: rentaActiva.vehiculo?.codigoVehiculo, station: rentaActiva.estacionOrigen?.nombre, total: 0 });
+          setTripStartedAt(new Date(rentaActiva.fechaInicio).getTime());
+          goTo("trip");
+        }
       }
-    }
 
       const lats = estacionesData.map(e => e.coordenadas.lat);
       const lngs = estacionesData.map(e => e.coordenadas.lng);
@@ -94,19 +85,19 @@ function Renta() {
       const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
 
       const stationsMapped = estacionesData.map((est) => ({
-      id: est._id,
-      name: est.nombre,
-      line: `Capacidad: ${est.capacidadMaxima}`,
-      lat: est.coordenadas.lat,
-      lng: est.coordenadas.lng,
-      vehicles: vehiculosData
-        .filter((v) => v.estacionActual && v.estacionActual._id === est._id && v.estado === "Disponible")
-        .map((v) => ({ id: v._id, type: v.tipo, serial: v.codigoVehiculo, price30: v.precioPorMinuto * 30, precioReal: v.precioPorMinuto }))
-    }));
+        id: est._id,
+        name: est.nombre,
+        line: `Capacidad: ${est.capacidadMaxima}`,
+        lat: est.coordenadas.lat,
+        lng: est.coordenadas.lng,
+        vehicles: vehiculosData
+          .filter((v) => v.estacionActual && v.estacionActual._id === est._id && v.estado === "Disponible")
+          .map((v) => ({ id: v._id, type: v.tipo, serial: v.codigoVehiculo, price30: v.precioPorMinuto * 30, precioReal: v.precioPorMinuto }))
+      }));
 
       setStations(stationsMapped);
     } catch (error) {
-    showToast("Error al conectar con el servidor.");
+      showToast("Error al conectar con el servidor.");
     } finally {
       setLoadingMap(false);
     }
@@ -222,13 +213,6 @@ function Renta() {
     );
   };
 
-  //VALIDACIONES DE TARJETA
-  const validarLuhn = (num) => {
-    let arr = (num + '').split('').reverse().map(x => parseInt(x, 10));
-    let sum = arr.reduce((acc, val, i) => (i % 2 !== 0 ? acc + val : acc + ((val * 2) % 9) || 9), 0);
-    return sum % 10 === 0;
-  };
-
   const validarExpiracion = (exp) => {
     if (!/^\d{2}\/\d{2}$/.test(exp)) return false;
     const [mm, yy] = exp.split('/').map(Number);
@@ -241,43 +225,61 @@ function Renta() {
     return true;
   };
 
+  //------ PROCESAR PAGO ------
   const procesarPago = async (event) => {
     event.preventDefault();
 
-    // 1. Validar el CVV (Siempre es requerido, ya sea tarjeta nueva o guardada)
-    if (payment.cvv.length < 3 || isNaN(payment.cvv)) {
+    // 1. Validar CVV
+    const cvvLimpio = payment.cvv.trim();
+    if (cvvLimpio.length < 3 || isNaN(cvvLimpio) || cvvLimpio === "000") {
       return showToast("CVV inválido (deben ser 3 o 4 números).");
     }
 
-    // 2. Si es una tarjeta nueva, validamos todo a fondo
+    // 2. Validar tarjeta nueva
     if (selectedCardId === "new") {
-      const cardClean = payment.card.replace(/\s/g, '');
-      if (cardClean.length < 15 || isNaN(cardClean) || !validarLuhn(cardClean)) {
+      if (!payment.holder.trim()) return showToast("Ingresa el nombre del titular.");
+      
+      const cardClean = payment.card.replace(/\s/g, "");
+      if (cardClean.length < 15 || isNaN(cardClean) || cardClean.length > 16) {
         return showToast("Número de tarjeta inválido. Revisa los dígitos.");
       }
       if (!validarExpiracion(payment.exp)) {
         return showToast("Fecha de expiración inválida o tarjeta vencida (Usa MM/AA).");
       }
 
-      // Si el usuario marcó "Guardar Tarjeta", mandamos petición al BackEnd
+      // 3. Guardar tarjeta si marcó el checkbox
       if (guardarTarjeta) {
+        if (!payment.alias.trim()) return showToast("Agrega un alias para identificar tu tarjeta.");
         try {
-          await fetch("http://localhost:5000/api/usuarios/metodos-pago", {
+          const res = await fetch("http://localhost:5000/api/usuarios/metodos-pago", {
             method: "POST", headers: getAuthHeaders(true),
-            body: JSON.stringify({ numeroTarjeta: cardClean, expiracion: payment.exp })
+            body: JSON.stringify({ 
+              numeroTarjeta: cardClean, 
+              expiracion: payment.exp,
+              alias: payment.alias.trim(),
+              titular: payment.holder.trim()
+            })
           });
-          showToast("Tarjeta encriptada y guardada con éxito.");
+          const data = await res.json();
+          if (res.ok) {
+            showToast("Tarjeta guardada con éxito.");
+          } else {
+            showToast(data.message || "No se pudo guardar la tarjeta.");
+          }
         } catch (error) {
           console.error("Error guardando tarjeta:", error);
         }
       }
     }
 
-    // Proceso de generar la orden de renta
     const now = new Date();
-    const orderId = `RV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${Math.floor(1000 + Math.random() * 9000)}`;
     setPaidOrder({
-      id: orderId, station: selectedStation.name, vehicleType: selectedVehicle.type, serial: selectedVehicle.serial, total: selectedVehicle.price30, paidAt: now
+      id: `RV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${Math.floor(1000 + Math.random() * 9000)}`,
+      station: selectedStation.name,
+      vehicleType: selectedVehicle.type,
+      serial: selectedVehicle.serial,
+      total: selectedVehicle.price30,
+      paidAt: now
     });
     goTo("ticket");
   };
@@ -286,7 +288,12 @@ function Renta() {
   const onStartTrip = async () => {
     try {
       const res = await fetch("http://localhost:5000/api/rentas/iniciar", {
-        method: "POST", headers: getAuthHeaders(true), body: JSON.stringify({ vehiculoId: selectedVehicle.id })
+        method: "POST", 
+        headers: getAuthHeaders(true), 
+        body: JSON.stringify({ 
+          vehiculoId: selectedVehicle.id,
+          estacionOrigenId: selectedStation.id
+        })
       });
       const data = await res.json();
 
@@ -294,39 +301,64 @@ function Renta() {
         const startedAt = Date.now();
         localStorage.setItem("rentaActivaId", data.renta._id);
         setTripStartedAt(startedAt);
-        window.sessionStorage.setItem(RENTA_TRIP_STORAGE_KEY, JSON.stringify({ selectedStation, selectedVehicle, paidOrder, tripStartedAt: startedAt }));
+
+        // Actualizamos paidOrder con el ID real de la renta del backend
+        setPaidOrder(prev => ({ ...prev, rentaId: data.renta._id }));
+
+        window.sessionStorage.setItem(RENTA_TRIP_STORAGE_KEY, JSON.stringify({ 
+          selectedStation, 
+          selectedVehicle, 
+          paidOrder: { ...paidOrder, rentaId: data.renta._id }, 
+          tripStartedAt: startedAt 
+        }));
         goTo("trip");
-        showToast("Viaje iniciado. Vehículo desbloqueado.");
+        showToast("¡Viaje iniciado! Vehículo desbloqueado.");
       } else {
-        // ✅ AQUÍ DETECTAMOS LA DEUDA O EL VIAJE ACTIVO Y LO MOSTRAMOS
-        alert(`🚨 ATENCIÓN: ${data.message}`);
-        if (res.status === 403) navigate("/perfil"); // Lo mandamos a pagar
+        console.log("Status:", res.status);
+        console.log("Data completa:", data);
+        alert(`🚨 ATENCIÓN: ${data.message || JSON.stringify(data)}`);
+        if (res.status === 403) navigate("/perfil");
       }
-    } catch (error) { showToast("Error al comunicarse con el servidor."); }
+    } catch (error) { 
+      showToast("Error al comunicarse con el servidor."); 
+    }
   };
 
   // --- PARAR VIAJE ---
-  // Recibe un parámetro para saber si la dejó en la calle o en la estación
   const onStopTrip = async (fueraDeEstacion = false) => {
-    const rentaId = localStorage.getItem("rentaActivaId");
-    if (rentaId) {
-      try {
-        const res = await fetch(`http://localhost:5000/api/rentas/finalizar/${rentaId}`, { 
-          method: "PUT", 
-          headers: getAuthHeaders(true),
-          body: JSON.stringify({ fueraDeEstacion }) // Mandamos el dato al servidor
-        });
-        const data = await res.json();
-        if (res.ok) {
-          alert(`Viaje finalizado. Total: $${data.total.toFixed(2)} MXN ${data.nota || ''}`);
-          localStorage.removeItem("rentaActivaId");
-        } else showToast(`Error al finalizar: ${data.message}`);
-      } catch (error) { showToast("Error de conexión al finalizar el viaje."); }
+    const rentaId = paidOrder?.rentaId || localStorage.getItem("rentaActivaId");
+
+    if (!rentaId) {
+      showToast("Error: no se encontró la renta activa.");
+      return;
     }
 
-    setTripStartedAt(null); setTripElapsed(0); setPaidOrder(null); setSelectedVehicle(null); setSelectedStation(null);
+    try {
+      const res = await fetch(`http://localhost:5000/api/rentas/finalizar/${rentaId}`, {
+        method: "PUT",
+        headers: getAuthHeaders(true),
+        body: JSON.stringify({ fueraDeEstacion })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Viaje finalizado. Duración: ${data.tiempo}. Total: $${data.total.toFixed(2)} MXN${data.nota ? ` — ${data.nota}` : ''}`);
+        localStorage.removeItem("rentaActivaId");
+      } else {
+        showToast(`Error al finalizar: ${data.message || data.error}`);
+        return; // No limpies el estado si falló
+      }
+    } catch (error) {
+      showToast("Error de conexión al finalizar el viaje.");
+      return;
+    }
+
+    setTripStartedAt(null);
+    setTripElapsed(0);
+    setPaidOrder(null);
+    setSelectedVehicle(null);
+    setSelectedStation(null);
     window.sessionStorage.removeItem(RENTA_TRIP_STORAGE_KEY);
-    await cargarDatos(); 
+    await cargarDatos();
     goTo("map");
   };
 
@@ -416,10 +448,10 @@ function Renta() {
         )}
 
         {step === "payment" && (
-  <section className="renta-step is-active" aria-labelledby="payment-title">
-    <div className="renta-container renta-container-narrow">
-      <p className="renta-kicker">Paso 2</p>
-      <h2 id="payment-title" className="rye-font">Pago Seguro</h2>
+        <section className="renta-step is-active" aria-labelledby="payment-title">
+        <div className="renta-container renta-container-narrow">
+        <p className="renta-kicker">Paso 2</p>
+        <h2 id="payment-title" className="rye-font">Pago Seguro</h2>
 
       <form className="renta-card renta-payment-form" onSubmit={procesarPago}>
         
@@ -453,6 +485,12 @@ function Renta() {
               <input type="checkbox" checked={guardarTarjeta} onChange={(e) => setGuardarTarjeta(e.target.checked)} />
               🔒 Guardar esta tarjeta en mi Wallet para futuros viajes
             </label>
+
+            {guardarTarjeta && (
+              <label>Alias (para identificarla en tu Wallet)
+                <input name="alias" placeholder="Ej: Nómina" value={payment.alias} onChange={onPaymentChange} />
+              </label>
+            )}
           </>
         )}
 

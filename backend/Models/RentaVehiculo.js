@@ -12,12 +12,16 @@ const RentaSchema = new mongoose.Schema({
         ref: 'Vehiculos',
         required: true
     },
-    horaInicio: {
+    estacionOrigen: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'Estacion' 
+    },
+    fechaInicio: {
         type: Date,
         default: Date.now,
         required: true
     },
-    horaFin: {
+    fechaFin: {
         type: Date,
         default: null
     },

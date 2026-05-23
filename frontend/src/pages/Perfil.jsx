@@ -23,7 +23,8 @@ function Perfil() {
     alias: "", 
     cardNumber: "",
     expiracion: "",
-    cvv: ""
+    cvv: "",
+    titular: ""
   });
 
   const showToast = (message) => {
@@ -136,6 +137,8 @@ function Perfil() {
     if (!cvvRegex.test(newWalletMethod.cvv)) return showToast(`⚠️ El CVV debe tener ${cvvLength} dígitos.`);
     if (newWalletMethod.cvv === "000") return showToast("⚠️ CVV inválido.");
 
+    if (!newWalletMethod.titular.trim()) return showToast("Ingresa el nombre del titular.");
+
     try {
       const res = await fetch("http://localhost:5000/api/usuarios/metodos-pago", {
         method: "POST",
@@ -146,13 +149,14 @@ function Perfil() {
         body: JSON.stringify({ 
           numeroTarjeta: digitsOnly,
           alias: newWalletMethod.alias.trim(),
-          expiracion: newWalletMethod.expiracion
+          expiracion: newWalletMethod.expiracion,
+          titular: newWalletMethod.titular.trim()
         })
       });
 
       if (res.ok) {
         showToast("💳 ¡Tarjeta agregada a tu Cartera Virtual!");
-        setNewWalletMethod({ brand: "Visa", alias: "", cardNumber: "", expiracion: "", cvv: "" });
+        setNewWalletMethod({ brand: "Visa", alias: "", cardNumber: "", expiracion: "", cvv: "", titular: "" });
         cargarTarjetas(localStorage.getItem("token"));
       } else {
         const data = await res.json();
@@ -368,6 +372,7 @@ function Perfil() {
                 walletMethods.map((method) => (
                   <article className="wallet-item" key={method._id} style={{padding: "15px", border: "1px solid rgba(109,87,61,.2)", borderRadius: "10px", marginBottom: "10px", background: "#fdf5e6", display: "flex", justifyContent: "space-between", alignItems: "center"}}>
                     <div style={{textAlign: "left"}}>
+                      <p style={{margin: 0, fontWeight: "bold", color: "#944a39"}}>{method.alias}</p>
                       <p className="wallet-brand" style={{margin: 0, fontWeight: "bold", color: "#2f2419"}}>💳 {method.marca} •••• {method.ultimos4}</p>
                       <p className="wallet-alias" style={{margin: "4px 0 0", fontSize: "0.85em", color: "#6f604f"}}>Tarjeta Guardada</p>
                     </div>
@@ -394,10 +399,14 @@ function Perfil() {
                       <option value="Amex">Amex</option>
                     </select>
                   </label>
-                  
-                  <label style={{ flex: "1.2", textAlign: "left", fontSize: "0.85rem", color: "#6f604f" }}>
-                    Alias
-                    <input className="mod-input" type="text" placeholder="Ejemplo: Nomina" style={{ width: "100%", margin: "5px 0 0", padding: "12px", boxSizing: "border-box" }} value={newWalletMethod.alias} onChange={(e) => setNewWalletMethod((prev) => ({ ...prev, alias: e.target.value }))} />
+
+                  <label style={{ flex: "1.5", textAlign: "left", fontSize: "0.85rem", color: "#6f604f" }}>
+                    Titular
+                    <input className="mod-input" type="text" placeholder="Como en la tarjeta"
+                      style={{ width: "100%", margin: "5px 0 0", padding: "12px", boxSizing: "border-box" }}
+                      value={newWalletMethod.titular}
+                      onChange={(e) => setNewWalletMethod((prev) => ({ ...prev, titular: e.target.value }))}
+                    />
                   </label>
                   
                   <label style={{ flex: "2", textAlign: "left", fontSize: "0.85rem", color: "#6f604f" }}>
@@ -407,6 +416,11 @@ function Perfil() {
                 </div>
 
                 <div style={{ display: "flex", gap: "10px", width: "100%", marginBottom: "15px" }}>
+                  <label style={{ flex: "1.2", textAlign: "left", fontSize: "0.85rem", color: "#6f604f" }}>
+                    Alias
+                    <input className="mod-input" type="text" placeholder="Ejemplo: Nomina" style={{ width: "100%", margin: "5px 0 0", padding: "12px", boxSizing: "border-box" }} value={newWalletMethod.alias} onChange={(e) => setNewWalletMethod((prev) => ({ ...prev, alias: e.target.value }))} />
+                  </label>
+
                   <label style={{ flex: "1", textAlign: "left", fontSize: "0.85rem", color: "#6f604f" }}>
                     Expiración
                     <input className="mod-input" type="text" placeholder="MM/AA" maxLength={5}

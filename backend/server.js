@@ -182,10 +182,12 @@ app.get("/api/usuarios/metodos-pago", verificarToken, async (req, res) => {
     if (!usuario) return res.status(404).json({ message: "Usuario no encontrado" });
     
     const tarjetasSeguras = (usuario.metodosPago || []).map(t => ({
-      _id: t._id,
-      ultimos4: t.ultimos4,
-      marca: t.marca,
-      expiracion: t.expiracion
+        _id: t._id,
+        ultimos4: t.ultimos4,
+        marca: t.marca,
+        expiracion: t.expiracion,
+        alias: t.alias,
+        titular: t.titular
     }));
     
     res.json(tarjetasSeguras);
@@ -197,10 +199,10 @@ app.get("/api/usuarios/metodos-pago", verificarToken, async (req, res) => {
 
 app.post("/api/usuarios/metodos-pago", verificarToken, async (req, res) => {
   try {
-    const { numeroTarjeta, expiracion, alias } = req.body;
+    const { numeroTarjeta, expiracion, alias, titular } = req.body;
 
-    if (!numeroTarjeta || !expiracion || !alias?.trim()) {
-      return res.status(400).json({ message: "Todos los campos son obligatorios." });
+    if (!numeroTarjeta || !expiracion || !alias?.trim() || !titular?.trim()) {
+    return res.status(400).json({ message: "Todos los campos son obligatorios." });
     }
 
     const digitsOnly = numeroTarjeta.replace(/\D/g, "");
@@ -237,7 +239,7 @@ app.post("/api/usuarios/metodos-pago", verificarToken, async (req, res) => {
     const duplicada = usuario.metodosPago.some(t => t.ultimos4 === ultimos4 && t.marca === marca && t.expiracion === expiracion);
     if (duplicada) return res.status(400).json({ message: "Esta tarjeta ya está guardada." });
 
-    usuario.metodosPago.push({ ultimos4, marca, expiracion, alias: alias.trim(), tarjetaEncriptada });
+    usuario.metodosPago.push({ ultimos4, marca, expiracion, alias: alias.trim(), titular: titular.trim(), tarjetaEncriptada });
     await usuario.save();
 
     registrarLog(`Evento: Usuario ${usuario.correo} guardó un nuevo método de pago`);
@@ -245,25 +247,6 @@ app.post("/api/usuarios/metodos-pago", verificarToken, async (req, res) => {
   } catch (error) {
     console.log("Error en POST tarjetas:", error);
     res.status(500).json({ message: "Error al guardar tarjeta" });
-  }
-});
-
-app.delete("/api/usuarios/metodos-pago/:tarjetaId", verificarToken, async (req, res) => {
-  try {
-    const usuario = await User.findById(req.user.id);
-    if (!usuario) return res.status(404).json({ message: "Usuario no encontrado" });
-
-    const tarjetaExiste = usuario.metodosPago.some(t => t._id.toString() === req.params.tarjetaId);
-    if (!tarjetaExiste) return res.status(404).json({ message: "Tarjeta no encontrada." });
-
-    usuario.metodosPago = usuario.metodosPago.filter(t => t._id.toString() !== req.params.tarjetaId);
-    await usuario.save();
-
-    registrarLog(`Evento: Usuario ${usuario.correo} eliminó un método de pago`);
-    res.json({ message: "Tarjeta eliminada correctamente." });
-  } catch (error) {
-    console.log("Error en DELETE tarjeta:", error);
-    res.status(500).json({ message: "Error al eliminar la tarjeta." });
   }
 });
 
@@ -313,6 +296,7 @@ app.get("/api/rentas/activa", verificarToken, async (req, res) => {
     res.status(500).json({ message: "Error al verificar renta activa" });
   }
 });
+
 
 //------ POST ------
 app.post("/api/estaciones", verificarToken, verificarAdmin, async (req, res) => {
@@ -383,8 +367,6 @@ app.post("/api/rentas/iniciar", verificarToken, async (req, res) => {
       return res.status(400).json({ message: "Ya tienes un viaje en curso. Finalízalo antes de rentar otro." });
     }
     
-
-    [cite_start]// ✅ REGLA 2: Verificar si tiene un adeudo/saldo negativo [cite: 262]
     const usuarioLogueado = await User.findById(usuarioId);
     if (usuarioLogueado.adeudo > 0) {
       return res.status(403).json({ 
@@ -404,7 +386,8 @@ app.post("/api/rentas/iniciar", verificarToken, async (req, res) => {
     registrarLog(`Evento Crítico: Renta iniciada - Vehículo: ${vehiculoId}`);
     res.status(201).json({ message: "Renta iniciada con éxito", renta: nuevaRenta });
   } catch (error) {
-    res.status(500).json({ error: "Error al procesar la renta" });
+    console.log("Error completo:", error); // ← agrega esto
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -452,44 +435,51 @@ app.put("/api/vehiculos/:id", verificarToken, verificarAdmin, async (req, res) =
 
 app.put("/api/rentas/finalizar/:id", verificarToken, async (req, res) => {
   try {
-    [cite_start]// Recibimos si el usuario dejó la bici tirada en la calle [cite: 264, 265]
-    const { fueraDeEstacion } = req.body; 
+    const { fueraDeEstacion } = req.body;
     const rentaId = req.params.id;
     const renta = await Renta.findById(rentaId).populate('vehiculo');
 
-    if (!renta || renta.estado === 'Finalizado') {
-      return res.status(400).json({ message: "Renta no encontrada o ya finalizada" });
-    }
+    if (!renta) return res.status(404).json({ message: "Renta no encontrada." });
+    if (renta.estado === 'Finalizado') return res.status(400).json({ message: "Esta renta ya fue finalizada." });
+    if (renta.usuario.toString() !== req.user.id) return res.status(403).json({ message: "No autorizado." });
 
-    const horaFin = new Date();
-    const minutos = Math.ceil((horaFin - renta.horaInicio) / (1000 * 60)); 
-    let costoTotal = minutos * renta.vehiculo.precioPorMinuto;
-    let mensajeExtra = "";
+    const fechaFin = new Date();
+    const minutos = Math.max(1, Math.ceil((fechaFin - renta.fechaInicio) / (1000 * 60)));
+    const costoTiempo = minutos * renta.vehiculo.precioPorMinuto;
 
-    [cite_start]// ✅ REGLA 3: Aplicar multa si la dejó fuera de la estación [cite: 264, 265]
-    if (fueraDeEstacion) {
-      const MULTA = 50; // $50 pesos de multa
-      costoTotal += MULTA;
-      mensajeExtra = ` (Incluye multa de $${MULTA} por abandono fuera de estación)`;
-      
-      // Le cargamos la deuda al usuario
+    const MULTA = 50;
+    const tieneMulta = fueraDeEstacion === true;
+    const costoTotal = tieneMulta ? costoTiempo + MULTA : costoTiempo;
+
+    if (tieneMulta) {
       await User.findByIdAndUpdate(req.user.id, { $inc: { adeudo: costoTotal } });
-      
-      // Registramos el incidente
-      const nuevaTransaccion = new Transaccion({ usuarioID: req.user.id, tipo: 'Multa', monto: costoTotal });
-      await nuevaTransaccion.save();
     }
 
-    renta.horaFin = horaFin;
+    await new Transaccion({ 
+      usuarioID: req.user.id, 
+      tipo: tieneMulta ? 'Multa' : 'Renta', 
+      monto: costoTotal 
+    }).save();
+
+    renta.fechaFin = fechaFin;
+    renta.costoTiempo = costoTiempo;
     renta.costoTotal = costoTotal;
+    renta.multa = tieneMulta;
     renta.estado = 'Finalizado';
     await renta.save();
+
     await Vehiculo.findByIdAndUpdate(renta.vehiculo._id, { estado: 'Disponible' });
 
     registrarLog(`Evento Crítico: Renta finalizada ID: ${rentaId} - Total: $${costoTotal}`);
-    res.json({ message: "Renta finalizada", tiempo: `${minutos} min`, total: costoTotal, nota: mensajeExtra });
+    res.json({ 
+      message: "Renta finalizada", 
+      tiempo: `${minutos} min`, 
+      total: costoTotal,
+      nota: tieneMulta ? `Incluye multa de $${MULTA} por abandono fuera de estación` : ""
+    });
   } catch (error) {
-    res.status(500).json({ error: "Error al finalizar la renta" });
+    console.log("Error al finalizar renta:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -599,6 +589,26 @@ app.put("/api/usuarios/:id", verificarToken, async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 });
+
+app.delete("/api/usuarios/metodos-pago/:tarjetaId", verificarToken, async (req, res) => {
+  try {
+    const usuario = await User.findById(req.user.id);
+    if (!usuario) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    const tarjetaExiste = usuario.metodosPago.some(t => t._id.toString() === req.params.tarjetaId);
+    if (!tarjetaExiste) return res.status(404).json({ message: "Tarjeta no encontrada." });
+
+    usuario.metodosPago = usuario.metodosPago.filter(t => t._id.toString() !== req.params.tarjetaId);
+    await usuario.save();
+
+    registrarLog(`Evento: Usuario ${usuario.correo} eliminó un método de pago`);
+    res.json({ message: "Tarjeta eliminada correctamente." });
+  } catch (error) {
+    console.log("Error en DELETE tarjeta:", error);
+    res.status(500).json({ message: "Error al eliminar la tarjeta." });
+  }
+});
+
 
 //------ REPORTES ------
 app.get("/api/reportes/historial-rentas", verificarToken, async (req, res) => {

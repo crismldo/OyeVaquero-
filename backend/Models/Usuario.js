@@ -42,7 +42,8 @@ const UsuarioSchema = new mongoose.Schema({
             marca: String,
             expiracion: String,
             tarjetaEncriptada: String,
-            alias: String
+            alias: String,
+            titular: String
         }],
         default: []
     },
