@@ -29,8 +29,8 @@ const handleRegister = async (e) => {
 
     // 2. Solo letras en nombre y apellido (incluye espacios y acentos)
     const nombreRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
-    if (!nombreRegex.test(nombre) || !nombreRegex.test(apellido)) {
-      alert("El nombre y apellido solo pueden contener letras.");
+    if (!nombreRegex.test(nombre) || !nombreRegex.test(apellido) || !nombreRegex.test(pais)) {
+      alert("El nombre, apellido y pais solo pueden contener letras.");
       return;
     }
 

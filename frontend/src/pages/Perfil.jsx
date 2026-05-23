@@ -82,8 +82,8 @@ function Perfil() {
     }
 
     const soloLetras = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
-    if (!soloLetras.test(nombre.trim()) || !soloLetras.test(apellido.trim())) {
-      return showToast("Nombre y apellido solo pueden contener letras.");
+    if (!soloLetras.test(nombre.trim()) || !soloLetras.test(apellido.trim()) || !soloLetras.test(pais.trim())) {
+      return showToast("Nombre, apellido y pais solo pueden contener letras.");
     }
 
     const correoRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;

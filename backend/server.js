@@ -103,6 +103,11 @@ app.post("/api/register", async (req, res) => {
     }
     }
 
+    const nombreRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
+    if (!nombreRegex.test(nombre) || !nombreRegex.test(apellido) || !nombreRegex.test(pais)) {
+      return res.status(400).json({ message: "El nombre, apellido y pais solo pueden contener letras." });
+    }
+
     const correoRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
     if (!correoRegex.test(correo.trim())) {
     return res.status(400).json({ message: "Correo electrónico no válido" });
@@ -564,6 +569,8 @@ app.put("/api/usuarios/:id", verificarToken, async (req, res) => {
 
     if (pais !== undefined) {
       if (!pais.trim()) return res.status(400).json({ message: "El país no puede estar vacío." });
+      const soloLetras = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
+      if (!soloLetras.test(pais.trim())) return res.status(400).json({ message: "El pais solo puede contener letras." });
       update.pais = pais.trim();
     }
 
