@@ -1,0 +1,375 @@
+@import url('https://fonts.googleapis.com/css2?family=Rye&family=Roboto+Slab:wght@400;700&family=Poppins:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg:           #e8ddca;
+  --ink:          #2f2419;
+  --muted:        #6f604f;
+  --surface:      #f0e6d4;
+  --surface-alt:  #fdf5e6;
+  --primary:      #8b4513;
+  --primary-hover:#5c3a21;
+  --accent:       #d4af37;
+  --danger:       #8b0000;
+  --danger-hover: #a00000;
+  --border:       rgba(47, 36, 25, 0.15);
+  --shadow:       0 12px 32px rgba(47, 36, 25, 0.18);
+  --radius-lg:    20px;
+  --radius-md:    12px;
+  --radius-sm:    8px;
+}
+
+/* =====================
+   PÁGINA Y FONDO
+   ===================== */
+.admin-page {
+  min-height: 100vh;
+  background-color: var(--bg);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 40px 20px;
+  position: relative;
+  font-family: 'Poppins', sans-serif;
+}
+
+.admin-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(900px 500px at 80% -100px, rgba(139, 69, 19, 0.12), transparent 60%),
+    repeating-linear-gradient(25deg, rgba(88, 67, 44, 0.03) 0, rgba(88, 67, 44, 0.03) 2px, transparent 2px, transparent 11px);
+}
+
+/* =====================
+   CONTENEDOR
+   ===================== */
+.admin-container {
+  width: 100%;
+  max-width: 960px;
+  animation: fadeUp 0.6s ease-out;
+}
+
+/* =====================
+   HEADER
+   ===================== */
+.admin-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--ink);
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  margin-bottom: 20px;
+  opacity: 0.75;
+  transition: opacity 0.2s, transform 0.2s;
+  padding: 0;
+}
+
+.admin-back-btn:hover {
+  opacity: 1;
+  transform: translateX(-4px);
+  color: var(--primary);
+}
+
+.admin-title {
+  font-family: 'Rye', cursive;
+  font-size: 2.4rem;
+  color: var(--primary);
+  text-align: center;
+  margin-bottom: 36px;
+  letter-spacing: 1px;
+  text-shadow: 2px 2px 0 rgba(47, 36, 25, 0.1);
+}
+
+/* =====================
+   GRID
+   ===================== */
+.admin-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.admin-full-width {
+  grid-column: 1 / -1;
+}
+
+/* =====================
+   SECCIÓN / CARD
+   ===================== */
+.admin-section-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-section-box::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+}
+
+.admin-section-box h3 {
+  font-family: 'Roboto Slab', serif;
+  font-size: 1rem;
+  color: var(--ink);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-section-box h3 i {
+  color: var(--primary);
+  font-size: 1.2rem;
+}
+
+/* =====================
+   INPUTS Y LABELS
+   ===================== */
+.admin-input-group {
+  margin-bottom: 14px;
+}
+
+.admin-input-group label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  margin-bottom: 6px;
+  margin-left: 2px;
+}
+
+.admin-input-group input,
+.admin-input-group select {
+  width: 100%;
+  padding: 11px 14px;
+  background: var(--surface-alt);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.9rem;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.admin-input-group input:focus,
+.admin-input-group select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.1);
+}
+
+.admin-coords-row {
+  display: flex;
+  gap: 12px;
+}
+
+.admin-coords-row .admin-input-group {
+  flex: 1;
+}
+
+/* =====================
+   BOTÓN GUARDAR
+   ===================== */
+.admin-btn-save {
+  width: 100%;
+  padding: 13px;
+  margin-top: 6px;
+  background: var(--primary);
+  color: #fdf5e6;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: 'Roboto Slab', serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 0 var(--primary-hover);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.admin-btn-save:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 var(--primary-hover);
+}
+
+.admin-btn-save:active {
+  transform: translateY(2px);
+  box-shadow: 0 0px 0 var(--primary-hover);
+}
+
+/* =====================
+   LISTA DE VEHÍCULOS
+   ===================== */
+.admin-vehicle-list {
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 4px;
+}
+
+.admin-vehicle-list::-webkit-scrollbar { width: 4px; }
+.admin-vehicle-list::-webkit-scrollbar-track { background: transparent; }
+.admin-vehicle-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.admin-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  transition: background 0.2s;
+}
+
+.admin-item:hover {
+  background: #f5ead5;
+}
+
+.admin-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.admin-item-sub {
+  font-size: 0.75rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.admin-empty {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 20px 0;
+}
+
+/* =====================
+   BOTÓN ELIMINAR
+   ===================== */
+.admin-btn-delete {
+  background: var(--danger);
+  color: #fdf5e6;
+  border: none;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.2s, transform 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.admin-btn-delete:hover {
+  background: var(--danger-hover);
+  transform: scale(1.04);
+}
+
+/* =====================
+   BOTON EDITAR
+   ===================== */
+.admin-btn-edit {
+  background: var(--accent);
+  color: #fdf5e6;
+  border: none;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.2s, transform 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: auto;
+  margin-right: 20px;
+}
+
+.admin-btn-edit:hover {
+  background: var(--primary-hover);
+  transform: scale(1.04);
+}
+
+/* =====================
+   TOAST
+   ===================== */
+.admin-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  background: rgba(33, 26, 20, 0.95);
+  color: #fff8ed;
+  padding: 13px 20px;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  z-index: 1000;
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.admin-toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* =====================
+   ANIMACIONES
+   ===================== */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* =====================
+   RESPONSIVE
+   ===================== */
+@media (max-width: 768px) {
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+  .admin-full-width {
+    grid-column: 1;
+  }
+  .admin-title {
+    font-size: 1.8rem;
+  }
+}

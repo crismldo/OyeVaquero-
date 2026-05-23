@@ -7,7 +7,12 @@ const jwt = require("jsonwebtoken");
 const fs = require('fs');
 
 // ------ IMPORTACIONES DE MODELOS ------
-const User = require("./Models/Usuario.js"); 
+const User = require("./Models/Usuario.js");
+const Vehiculo = require("./Models/Vehiculos.js"); 
+const Renta = require("./Models/RentaVehiculo.js"); 
+const Estacion = require("./Models/Estaciones.js");
+const Incidente = require("./Models/Incidentes.js"); 
+const Transaccion = require("./Models/Transacciones.js"); 
 
 const app = express();
 app.use(cors()); 
@@ -19,12 +24,38 @@ const registrarLog = (mensaje) => {
   fs.appendFileSync('backend_critical.log', logMensaje);
 };
 
+// ------ CREAR ADMIN AUTOMÁTICAMENTE ------
+const crearAdminHardcoded = async () => {
+  try {
+    const adminEmail = "admin@vueltavaquera.com";
+    const adminExiste = await User.findOne({ correo: adminEmail });
+
+    if (!adminExiste) {
+      const hashedPassword = await bcrypt.hash("Admin123!", 10);
+      const nuevoAdmin = new User({
+        nombre: "Fernanda",
+        apellido: "Admin",
+        fechaNacimiento: new Date(2000, 0, 1),
+        pais: "México",
+        correo: adminEmail,
+        password: hashedPassword,
+        rol: "admin" 
+      });
+      await nuevoAdmin.save();
+      registrarLog("Sistema: Usuario Admin maestro creado exitosamente.");
+      console.log("¡Usuario Admin hardcoded listo! (admin@vueltavaquera.com)");
+    }
+  } catch (error) {
+    registrarLog(`Error creando admin: ${error.message}`);
+  }
+};
 
 // ------ CONEXIÓN A LA BD ------
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     registrarLog('Conexión exitosa a MongoDB');
     console.log('¡Base de datos conectada exitosamente!');
+    crearAdminHardcoded();
   })
   .catch((error) => {
     registrarLog(`Error de conexión a BD: ${error.message}`);
@@ -135,6 +166,15 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
+app.get("/api/usuarios", verificarToken, async (req, res) => {
+  try {
+    const usuarios = await User.find().select('-password'); 
+    res.json(usuarios);
+  } catch (error) {
+    res.status(500).json({ message: "Error al obtener usuarios" });
+  }
+});
+
 // ------  METODOS DE PAGO ------
 app.get("/api/usuarios/metodos-pago", verificarToken, async (req, res) => {
   try {
@@ -227,8 +267,186 @@ app.delete("/api/usuarios/metodos-pago/:tarjetaId", verificarToken, async (req, 
   }
 });
 
-//-----------------------------------------------------------------------------------------------
+//------ GETS BASICOS ------
+app.get("/api/estaciones", verificarToken, async (req, res) => {
+  try {
+    const estaciones = await Estacion.find(); 
+    res.json(estaciones); 
+  } catch (error) {
+    res.status(500).json({ message: "Error al obtener las estaciones" });
+  }
+});
+app.get("/api/incidentes", verificarToken, async (req, res) => {
+  try {
+    const incidentes = await Incidente.find().populate('vehiculo').populate('reportadoPor');
+    res.json(incidentes);
+  } catch (error) {
+    res.status(500).json({ message: "Error al obtener incidentes" });
+  }
+});
 
+app.get("/api/vehiculos", verificarToken, async (req, res) => {
+  try {
+    const vehiculos = await Vehiculo.find().populate('estacionActual'); 
+    res.json(vehiculos);
+  } catch (error) {
+    res.status(500).json({ message: "Error al obtener los vehículos" });
+  }
+});
+
+app.get("/api/transacciones", verificarToken, async (req, res) => {
+  try {
+    const transacciones = await Transaccion.find().populate('usuarioID'); 
+    res.json(transacciones);
+  } catch (error) {
+    res.status(500).json({ message: "Error al obtener transacciones" });
+  }
+});
+
+//------ POST ------
+app.post("/api/estaciones", verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const { nombre, capacidadMaxima, coordenadas } = req.body;
+
+    if (!nombre || !nombre.trim()) return res.status(400).json({ message: "El nombre es obligatorio." });
+    if (!capacidadMaxima || capacidadMaxima < 1 || !Number.isInteger(Number(capacidadMaxima))) return res.status(400).json({ message: "La capacidad debe ser un entero mayor a 0." });
+    if (!coordenadas || coordenadas.lat === undefined || coordenadas.lng === undefined) return res.status(400).json({ message: "Las coordenadas son obligatorias." });
+    if (coordenadas.lat < -90 || coordenadas.lat > 90) return res.status(400).json({ message: "Latitud inválida." });
+    if (coordenadas.lng < -180 || coordenadas.lng > 180) return res.status(400).json({ message: "Longitud inválida." });
+
+    const existe = await Estacion.findOne({ nombre: nombre.trim() });
+    if (existe) return res.status(400).json({ message: "Ya existe una estación con ese nombre." });
+
+    const nuevaEstacion = new Estacion({ nombre: nombre.trim(), capacidadMaxima: Number(capacidadMaxima), coordenadas });
+    await nuevaEstacion.save();
+
+    registrarLog(`Evento Crítico: Nueva estación creada - ${nombre.trim()}`);
+    res.status(201).json(nuevaEstacion);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.post("/api/vehiculos", verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const { codigoVehiculo, tipo, precioPorMinuto, estacionActual, bateria, estado } = req.body;
+
+    if (!codigoVehiculo || !codigoVehiculo.trim()) return res.status(400).json({ message: "El código del vehículo es obligatorio." });
+    if (!tipo) return res.status(400).json({ message: "El tipo de vehículo es obligatorio." });
+    if (!precioPorMinuto || Number(precioPorMinuto) <= 0) return res.status(400).json({ message: "El precio por minuto debe ser mayor a 0." });
+    if (!estacionActual) return res.status(400).json({ message: "La estación es obligatoria." });
+
+    if (bateria !== undefined && (bateria < 0 || bateria > 100)) return res.status(400).json({ message: "Nivel de batería inválido." });
+
+    const existe = await Vehiculo.findOne({ codigoVehiculo: codigoVehiculo.trim() });
+    if (existe) return res.status(400).json({ message: "Ya existe un vehículo con ese código." });
+
+    const estacionValida = await Estacion.findById(estacionActual);
+    if (!estacionValida) return res.status(400).json({ message: "La estación seleccionada no existe." });
+
+    const nuevoVehiculo = new Vehiculo({
+      codigoVehiculo: codigoVehiculo.trim(),
+      tipo,
+      precioPorMinuto: Number(precioPorMinuto),
+      estacionActual,
+      bateria: bateria ?? 100,
+      estado: estado || "Disponible"
+    });
+
+    await nuevoVehiculo.save();
+    registrarLog(`Evento Crítico: Vehículo ${codigoVehiculo.trim()} creado`);
+    res.status(201).json(nuevoVehiculo);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+//------ PUT ------
+app.put("/api/estaciones/:id", verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const { nombre, capacidadMaxima } = req.body;
+
+    if (!nombre || !nombre.trim()) return res.status(400).json({ message: "El nombre es obligatorio." });
+    if (!capacidadMaxima || Number(capacidadMaxima) < 1 || !Number.isInteger(Number(capacidadMaxima))) return res.status(400).json({ message: "La capacidad debe ser un entero mayor a 0." });
+
+    const duplicado = await Estacion.findOne({ nombre: nombre.trim(), _id: { $ne: req.params.id } });
+    if (duplicado) return res.status(400).json({ message: "Ya existe una estación con ese nombre." });
+
+    const actualizada = await Estacion.findByIdAndUpdate(req.params.id, { nombre: nombre.trim(), capacidadMaxima: Number(capacidadMaxima) }, { new: true });
+    if (!actualizada) return res.status(404).json({ message: "Estación no encontrada." });
+
+    registrarLog(`Evento: Estación actualizada - ${nombre.trim()}`);
+    res.json(actualizada);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.put("/api/vehiculos/:id", verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const { precioPorMinuto, estado, estacionActual } = req.body;
+
+    if (!precioPorMinuto || Number(precioPorMinuto) <= 0) return res.status(400).json({ message: "El precio debe ser mayor a 0." });
+    if (!estado) return res.status(400).json({ message: "El estado es obligatorio." });
+    if (!estacionActual) return res.status(400).json({ message: "La estación es obligatoria." });
+
+    const estacionValida = await Estacion.findById(estacionActual);
+    if (!estacionValida) return res.status(400).json({ message: "La estación seleccionada no existe." });
+
+    const actualizado = await Vehiculo.findByIdAndUpdate(req.params.id, { precioPorMinuto: Number(precioPorMinuto), estado, estacionActual }, { new: true });
+    if (!actualizado) return res.status(404).json({ message: "Vehículo no encontrado." });
+
+    registrarLog(`Evento: Vehículo actualizado - ${actualizado.codigoVehiculo}`);
+    res.json(actualizado);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+
+//------ DELETE ------
+app.delete("/api/estaciones/:id", verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const estacion = await Estacion.findByIdAndDelete(req.params.id);
+    if (!estacion) return res.status(404).json({ message: "Estación no encontrada." });
+    registrarLog(`Evento Crítico: Estación eliminada - ${estacion.nombre}`);
+    res.json({ message: "Estación eliminada correctamente" });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.delete("/api/vehiculos/:id", verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const vehiculo = await Vehiculo.findByIdAndDelete(req.params.id);
+    if (!vehiculo) return res.status(404).json({ message: "Vehículo no encontrado." });
+    registrarLog(`Evento Crítico: Vehículo eliminado - ${vehiculo.codigoVehiculo}`);
+    res.json({ message: "Vehículo borrado correctamente" });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.delete("/api/usuarios/:id", verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const usuario = await User.findById(req.params.id);
+    if (!usuario) return res.status(404).json({ message: "Usuario no encontrado." });
+
+    // Evitar que un admin se elimine a sí mismo desde el backend
+    if (req.user.id === req.params.id) return res.status(403).json({ message: "No puedes eliminarte a ti mismo." });
+
+    // Evitar eliminar otros admins
+    if (usuario.rol === "admin") return res.status(403).json({ message: "No se puede eliminar a un administrador." });
+
+    await User.findByIdAndDelete(req.params.id);
+    registrarLog(`Evento Crítico: Usuario eliminado - ${usuario.correo}`);
+    res.json({ message: "Usuario eliminado correctamente" });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+//------ BUSQUEDAS ESPECIFICAS ------
 app.get("/api/usuarios/:id", verificarToken, async (req, res) => {
   try {
     const usuario = await User.findById(req.params.id).select("-password");
@@ -292,6 +510,34 @@ app.put("/api/usuarios/:id", verificarToken, async (req, res) => {
   }
 });
 
+//------ REPORTES ------
+app.get("/api/reportes/historial-rentas", verificarToken, async (req, res) => {
+  try {
+    const reporte = await Renta.find().populate('usuario', 'nombre correo').populate('vehiculo', 'codigoVehiculo tipo'); 
+    res.json(reporte);
+  } catch (error) { res.status(500).json({ message: "Error" }); }
+});
+
+app.get("/api/reportes/incidentes-pendientes", verificarToken, async (req, res) => {
+  try {
+    const incidentesPendientes = await Incidente.find({ estado: 'Pendiente' }).populate('vehiculo', 'codigoVehiculo tipo estado').populate('reportadoPor', 'nombre correo'); 
+    res.json(incidentesPendientes);
+  } catch (error) { res.status(500).json({ message: "Error" }); }
+});
+
+app.get("/api/reportes/ingresos-transacciones", verificarToken, async (req, res) => {
+  try {
+    const ingresos = await Transaccion.find().populate('usuarioID', 'nombre correo billetera');
+    res.json(ingresos);
+  } catch (error) { res.status(500).json({ message: "Error" }); }
+});
+
+app.get("/api/reportes/ocupacion-estaciones", verificarToken, async (req, res) => {
+  try {
+    const ocupacion = await Vehiculo.find({ estacionActual: { $ne: null } }).populate('estacionActual', 'nombre capacidadMaxima estado');
+    res.json(ocupacion);
+  } catch (error) { res.status(500).json({ message: "Error" }); }
+});
 
 // ------ INICIO DEL SERVIDOR ------
 const PORT = process.env.PORT || 5000;
