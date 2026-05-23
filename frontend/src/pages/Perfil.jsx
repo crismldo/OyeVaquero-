@@ -123,11 +123,9 @@ function Perfil() {
     if (digitsOnly.length < 15 || digitsOnly.length > 16) return showToast("Número de tarjeta inválido.");
     if (newWalletMethod.alias.trim() === "") return showToast("Agrega un alias para identificarla.");
     
-    // Validar expiración formato MM/YY
     const expRegex = /^(0[1-9]|1[0-2])\/\d{2}$/;
     if (!expRegex.test(newWalletMethod.expiracion)) return showToast("Fecha de expiración inválida. Usa el formato MM/AA.");
 
-    // Validar que no esté vencida
     const [mes, anio] = newWalletMethod.expiracion.split("/");
     const expDate = new Date(2000 + parseInt(anio), parseInt(mes) - 1, 1);
     if (expDate < new Date()) return showToast("⚠️ Esta tarjeta ya está vencida.");
@@ -166,10 +164,23 @@ function Perfil() {
   };
 
   // --- ELIMINAR TARJETA ---
-  const removeWalletMethod = (id) => {
-    // Por ahora solo la quitamos de la vista
-    setWalletMethods(prev => prev.filter(m => m._id !== id));
-    showToast("Método de pago eliminado.");
+  const removeWalletMethod = async (id) => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/usuarios/metodos-pago/${id}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
+      });
+
+      if (res.ok) {
+        showToast("Tarjeta eliminada correctamente.");
+        cargarTarjetas(localStorage.getItem("token"));
+      } else {
+        const data = await res.json();
+        showToast(data.message || "Error al eliminar la tarjeta.");
+      }
+    } catch (error) {
+      showToast("Error de conexión al eliminar.");
+    }
   };
 
 

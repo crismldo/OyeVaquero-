@@ -207,7 +207,27 @@ app.post("/api/usuarios/metodos-pago", verificarToken, async (req, res) => {
     res.status(500).json({ message: "Error al guardar tarjeta" });
   }
 });
-//---------------------------------------
+
+app.delete("/api/usuarios/metodos-pago/:tarjetaId", verificarToken, async (req, res) => {
+  try {
+    const usuario = await User.findById(req.user.id);
+    if (!usuario) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    const tarjetaExiste = usuario.metodosPago.some(t => t._id.toString() === req.params.tarjetaId);
+    if (!tarjetaExiste) return res.status(404).json({ message: "Tarjeta no encontrada." });
+
+    usuario.metodosPago = usuario.metodosPago.filter(t => t._id.toString() !== req.params.tarjetaId);
+    await usuario.save();
+
+    registrarLog(`Evento: Usuario ${usuario.correo} eliminó un método de pago`);
+    res.json({ message: "Tarjeta eliminada correctamente." });
+  } catch (error) {
+    console.log("Error en DELETE tarjeta:", error);
+    res.status(500).json({ message: "Error al eliminar la tarjeta." });
+  }
+});
+
+//-----------------------------------------------------------------------------------------------
 
 app.get("/api/usuarios/:id", verificarToken, async (req, res) => {
   try {
